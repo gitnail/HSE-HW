@@ -60,9 +60,12 @@ class Polynomial {
         Polynomial operator + (const Polynomial& p) {
             Polynomial<T> res;
             auto& a = p.data, b = this->data, c = res.data;
-            c.resize(max(a.size(), b.size()), 0);
-            for (size_t i = 0; i < )
-            //adasd
+            if (a.size() > b.size()) c = a;
+            else c = b;
+            for (size_t i = 0; i != min(a.size(), b.size()); ++i) {
+                c[i] = a[i] + b[i];
+            }
+            return res;
         }
 };
 
