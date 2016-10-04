@@ -67,6 +67,13 @@ class Polynomial {
             }
             return res;
         }
+        
+        Polynomial operator - (Polynomial p) {
+            for (auto& val : p.data) {
+                p = -p;
+            }
+            return *this + p;
+        }
 };
 
 int main() {
