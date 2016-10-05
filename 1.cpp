@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
@@ -5,28 +6,22 @@ using namespace std;
 
 template<typename T>
 class Polynomial {
-    private:
+ private:
         vector<T> data;
-        T pow(T a, int n) {
-            T res = 1;
-            while (n --> 0) {
-                if (n & 1) {
-                    res *= a;
-                    --n;
-                } else {
-                    a *= a;
-                    n /= 2;
-                }
-            }
-            return res;
+
+        void relax(Polynomial& p) const {
+            while (!p.data.empty() && *p.data.rbegin() == 0) p.data.pop_back();
         }
-    public:
+
+ public:
         Polynomial() {}
 
-        Polynomial(vector<T>& other) : data(other) {}
+        Polynomial(vector<T>& other) : data(other) {
+            relax(*this);
+        }
 
         Polynomial(int k) {
-            data = {k};
+            if (!k) data = {k};
         }
 
         template<typename It>
@@ -35,10 +30,17 @@ class Polynomial {
                 data.push_back(*first);
                 ++first;
             }
+            relax(*this);
+        }
+
+        Polynomial& operator = (const Polynomial& p) {
+            data = p.data;
+            return *this;
         }
 
         bool operator == (const Polynomial& p) const {
-            auto& a = p.data, b = this->data;
+            auto& a = p.data;
+            auto& b = data;
             if (a.size() == b.size())
                 return a == b;
             if (a.size() < b.size()) {
@@ -56,38 +58,42 @@ class Polynomial {
             for (size_t i = b.size(); i != a.size(); ++i) {
                 if (a[i] != 0) return false;
             }
-            return true;      
+            return true;
         }
-        
+
         bool operator != (const Polynomial& p) const {
             return !(*this == p);
         }
-        
+
         bool operator == (const T& d) const {
-            return  *this == new Polynomial<T>(d);
+            return  *this == *(new Polynomial<T>(d));
         }
 
         bool operator != (const T& d) const {
             return !(*this == d);
         }
-        
+
         Polynomial operator + (const Polynomial& p) const {
             Polynomial<T> res;
             auto& a = p.data;
-            auto& b = this->data;
+            auto& b = data;
             auto& c = res.data;
-            if (a.size() > b.size()) c = a;
-            else c = b;
+            if (a.size() > b.size()) {
+                c = a;
+            } else  {
+                c = b;
+            }
             for (size_t i = 0; i != min(a.size(), b.size()); ++i) {
                 c[i] = a[i] + b[i];
             }
+            relax(res);
             return res;
         }
 
         Polynomial operator * (const Polynomial& p) const {
             Polynomial<T> res;
             auto& a = p.data;
-            auto& b = this->data;
+            auto& b = data;
             auto& c = res.data;
             c.resize(a.size() + b.size() - 1, 0);
             for (size_t i = 0; i != a.size(); ++i) {
@@ -95,6 +101,7 @@ class Polynomial {
                     c[i + j] += a[i] * b[j];
                 }
             }
+            relax(res);
             return res;
         }
 
@@ -105,63 +112,61 @@ class Polynomial {
             return *this + p;
         }
 
-        void operator += (const Polynomial& p) {
-            *this = *this + p;
+        Polynomial& operator += (const Polynomial& p) {
+            return (*this = *this + p);
         }
 
-        void operator -= (const Polynomial& p) {
-            *this = *this - p;
+        Polynomial& operator -= (const Polynomial& p) {
+            return *this = *this - p;
         }
 
-        void operator *= (const Polynomial& p) {
-            *this = *this * p;
+        Polynomial& operator *= (const Polynomial& p) {
+            return *this = *this * p;
         }
-        
-        Polynomial operator + (const T& d) const {    
-            return *this + new Polynomial<T>(d);
+
+        Polynomial operator + (const T& d) const {
+            return *this + *(new Polynomial<T>(d));
         }
-        
+
         Polynomial operator - (const T& d) const {
-            return *this - new Polynomial<T>(d);
+            return *this - *(new Polynomial<T>(d));
         }
 
         Polynomial operator * (const T& d) const {
-            return *this * new Polynomial<T>(d);
+            return *this * *(new Polynomial<T>(d));
         }
 
         Polynomial operator += (const T& d) {
-            *this = *this + d;
+            return *this = *this + d;
         }
 
         Polynomial operator -= (const T& d) {
-            *this = *this - d;
+            return *this = *this - d;
         }
 
         Polynomial operator *= (const T& d) {
-            *this = *this * d;
+            return *this = *this * d;
         }
 
-        const T& operator [] (size_t i) const {   
-            if (i < this->data.size()) return this->data[i];
+        const T operator[] (size_t i) const {
+            if (i < data.size()) return data[i];
             return 0;
         }
-    
-        T& operator [] (size_t i) {
-            if (i < this->data.size()) return this->data[i];
+
+        T operator[] (size_t i) {
+            if (i < data.size()) return data[i];
             return 0;
         }
-        
+
         int Degree() const {
-            for (int i = this->data.size() - 1; i >= 0; --i) {
-                if ((*this)[i] != 0) return i;
-            }
-            return -1;
+            return data.size() - 1;
         }
-        
-        const T operator () (const T& x) const {
-            T res = 0;
-            for (size_t i = 0; i != this->data.size(); ++i) {
-                res += (*this)[i] * pow(x, i);
+
+        T operator () (const T& x) const {
+            T res = 0, x1 = x;
+            for (size_t i = 0; i != data.size(); ++i) {
+                res += (*this)[i] * x1;
+                x1 *= x;
             }
             return res;
         }
@@ -187,7 +192,7 @@ class Polynomial {
                     was = true;
                     os << k << "x^" << i;
                 }
-                if (k > 0){
+                if (k > 0)  {
                     if (was) os << '+';
                     os << k << "x^" << i;
                     was = true;
@@ -198,46 +203,22 @@ class Polynomial {
             os << k;
             return os;
         }
-        
-        template<typename It>
-        const It& begin() const {
-            It first = this->data.begin();
-            It last = this->data.end();
-            while (first != last && *first == 0) ++first;
-            return first;
+
+        typename vector<T>::const_iterator begin() const {
+            return data.begin();
         }
 
-        template<typename It>
-        const It& end() const {
-            It first = this->data.begin();
-            It last = this->data.end();
-            --last;
-            while (first != last) {
-                if (*last != 0) return last;    
-            }
-            return this->data.end();
+        typename vector<T>::const_iterator end() const {
+            return data.end();
         }
-
-
-
 };
 
-int main() {
-    vector<int> v = {1, 3, -1, 0, 4, -5};
-    Polynomial<int> a(v), b(5);
-}
-
-
-
-
-
-
-
-
-
-
-
-
+/*int main() {
+    vector<int> v = {1, -1, 4, 5, 3, -6}, v1 = {4, 3, 2, 0, -1, 1};
+    Polynomial<int> a(v), b(v1);
+    a += b;
+    cout << a;
+}*/
 
 
 
