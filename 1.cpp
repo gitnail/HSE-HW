@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <assert.h>
 #include <iostream>
+#include <utility>
 #include <vector>
 
 using namespace std;
@@ -20,7 +22,7 @@ class Polynomial {
         relax(*this);
     }
 
-    Polynomial(int k) {
+    Polynomial(T k) {
         if (k != 0) data = {k};
     }
 
@@ -219,14 +221,41 @@ class Polynomial {
     typename vector<T>::const_iterator end() const {
         return data.end();
     }
+
+    pair<Polynomial, Polynomial> divide(Polynomial a, Polynomial b) const {
+        Polynomial<T> res;
+        auto kek = b;
+        res.data.resize(a.data.size() + b.data.size() + 2, 0);
+        while (a.Degree() >= b.Degree()) {
+            auto& tmp = b.data;
+            reverse(tmp.begin(), tmp.end());
+            while (b.Degree() < a.Degree()) tmp.push_back(0);
+            reverse(tmp.begin(), tmp.end());
+            T k = a[a.Degree()] / b[b.Degree()];
+            res.data[a.Degree() - kek.Degree()] = k;
+            a -= b * k;
+            b = kek;
+        }
+        relax(res);
+        return {res, a};
+    }
+
+    Polynomial operator / (const Polynomial& p) const {
+        return divide(*this, p).first;
+    }
+
+    Polynomial operator % (const Polynomial& p) const {
+        return divide(*this, p).second;
+    }
+
+    Polynomial operator , (Polynomial p) const {
+        auto q = *this;
+        while (!p.data.empty()) {
+            q = q % p;
+            auto t = q;
+            q = p;
+            p = t;
+        }
+        return q / *(new Polynomial<T> (q[q.Degree()]));
+    }
 };
-
-/*int main() {
-    vector<int> v = {1, -1, 4, 5, 3, -6}, v1 = {4, 3, 2, 0, -1, 1};
-    Polynomial<int> a(v), b(v1);
-    a += b;
-    cout << a;
-}*/
-
-
-
