@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <assert.h>
 #include <iostream>
 #include <utility>
 #include <vector>
@@ -11,56 +10,29 @@ class Polynomial {
  private:
     vector<T> data;
 
-    void relax(Polynomial& p) const {
+    static void relax(Polynomial& p) {
         while (!p.data.empty() && *p.data.rbegin() == 0) p.data.pop_back();
     }
 
  public:
     Polynomial() {}
 
-    Polynomial(vector<T>& other) : data(other) {
+    Polynomial(const vector<T>& other) : data(other) {
         relax(*this);
     }
 
-    Polynomial(T k) {
+    Polynomial(const T& k) {
         if (k != 0) data = {k};
     }
 
     template<typename It>
     Polynomial(It first, It last) {
-        while (first != last) {
-            data.push_back(*first);
-            ++first;
-        }
+        copy(first, last, back_inserter(data));
         relax(*this);
     }
 
-    Polynomial& operator = (const Polynomial& p) {
-        data = p.data;
-        return *this;
-    }
-
     bool operator == (const Polynomial& p) const {
-        auto& a = p.data;
-        auto& b = data;
-        if (a.size() == b.size())
-            return a == b;
-        if (a.size() < b.size()) {
-            for (size_t i = 0; i != a.size(); ++i) {
-                if (a[i] != b[i]) return false;
-            }
-            for (size_t i = a.size(); i != b.size(); ++i) {
-                if (b[i] != 0) return false;
-            }
-            return true;
-        }
-        for (size_t i = 0; i != b.size(); ++i) {
-            if (b[i] != a[i]) return false;
-        }
-        for (size_t i = b.size(); i != a.size(); ++i) {
-            if (a[i] != 0) return false;
-        }
-        return true;
+        return data == p.data;
     }
 
     bool operator != (const Polynomial& p) const {
@@ -68,28 +40,55 @@ class Polynomial {
     }
 
     bool operator == (const T& d) const {
-        return  *this == *(new Polynomial<T>(d));
+        return  *this == Polynomial<T>(d);
     }
 
     bool operator != (const T& d) const {
         return !(*this == d);
     }
 
-    Polynomial operator + (const Polynomial& p) const {
-        Polynomial<T> res;
-        auto& a = p.data;
-        auto& b = data;
-        auto& c = res.data;
-        if (a.size() > b.size()) {
-            c = a;
-        } else  {
-            c = b;
-        }
+    Polynomial& operator += (const Polynomial& p) {
+        auto& a = data;
+        auto& b = p.data;
+        while (a.size() < b.size()) a.push_back(0);
         for (size_t i = 0; i != min(a.size(), b.size()); ++i) {
-            c[i] = a[i] + b[i];
+            a[i] += b[i];
         }
-        relax(res);
-        return res;
+        relax(*this);
+        return *this;
+    }
+
+    Polynomial operator + (const Polynomial& p) const {
+        auto res = *this;
+        return res += p;
+    }
+
+    Polynomial& operator += (const T& d) {
+        return *this += Polynomial<T>(d);
+    }
+
+    Polynomial operator + (const T& d) const {
+        auto res = *this;
+        return res += d;
+    }
+
+    Polynomial operator - (Polynomial p) const {
+        for (auto& val : p.data) {
+            val = -val;
+        }
+        return *this + p;
+    }
+
+    Polynomial& operator -= (const Polynomial& p) {
+        return *this = *this - p;
+    }
+
+    Polynomial operator - (const T& d) const {
+        return *this - Polynomial<T>(d);
+    }
+
+    Polynomial& operator -= (const T& d) {
+        return *this = *this - d;
     }
 
     Polynomial operator * (const Polynomial& p) const {
@@ -107,46 +106,15 @@ class Polynomial {
         return res;
     }
 
-    Polynomial operator - (Polynomial p) const {
-        for (auto& val : p.data) {
-            val = -val;
-        }
-        return *this + p;
-    }
-
-    Polynomial& operator += (const Polynomial& p) {
-        return (*this = *this + p);
-    }
-
-    Polynomial& operator -= (const Polynomial& p) {
-        return *this = *this - p;
-    }
-
     Polynomial& operator *= (const Polynomial& p) {
         return *this = *this * p;
     }
 
-    Polynomial operator + (const T& d) const {
-        return *this + *(new Polynomial<T>(d));
-    }
-
-    Polynomial operator - (const T& d) const {
-        return *this - *(new Polynomial<T>(d));
-    }
-
     Polynomial operator * (const T& d) const {
-        return *this * *(new Polynomial<T>(d));
+        return *this * Polynomial<T>(d);
     }
 
-    Polynomial operator += (const T& d) {
-        return *this = *this + d;
-    }
-
-    Polynomial operator -= (const T& d) {
-        return *this = *this - d;
-    }
-
-    Polynomial operator *= (const T& d) {
+    Polynomial& operator *= (const T& d) {
         return *this = *this * d;
     }
 
@@ -165,10 +133,10 @@ class Polynomial {
     }
 
     T operator () (const T& x) const {
-        T res = 0, x1 = 1;
-        for (size_t i = 0; i != data.size(); ++i) {
-            res += (*this)[i] * x1;
-            x1 *= x;
+        T res = 0;
+        for (int i = data.size() - 1; i >= 0; --i) {
+            res += data[i];
+            if (i > 0) res *= x;
         }
         return res;
     }
@@ -224,7 +192,7 @@ class Polynomial {
 
     pair<Polynomial, Polynomial> divide(Polynomial a, Polynomial b) const {
         Polynomial<T> res;
-        auto kek = b;
+        auto cp = b;
         res.data.resize(a.data.size() + b.data.size() + 2, 0);
         while (a.Degree() >= b.Degree()) {
             auto& tmp = b.data;
@@ -232,9 +200,9 @@ class Polynomial {
             while (b.Degree() < a.Degree()) tmp.push_back(0);
             reverse(tmp.begin(), tmp.end());
             T k = a[a.Degree()] / b[b.Degree()];
-            res.data[a.Degree() - kek.Degree()] = k;
+            res.data[a.Degree() - cp.Degree()] = k;
             a -= b * k;
-            b = kek;
+            b = cp;
         }
         relax(res);
         return {res, a};
