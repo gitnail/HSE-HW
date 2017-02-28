@@ -8,25 +8,36 @@ template<class KeyType, class ValueType, class Hash = std::hash<KeyType>>
 class HashMap {
  private:
     std::vector<std::list<typename std::list<std::pair<const KeyType,
-    ValueType>>::iterator>> table;
-    std::list<std::pair<const KeyType, ValueType>> all;
+    ValueType>>::iterator>> table_;
+    std::list<std::pair<const KeyType, ValueType>> all_;
     Hash hash_;
-    const size_t beginner_size = 1;
-    size_t buckets;
+    const size_t beginner_size_ = 1, times_ = 2;
+    size_t buckets_;
+    void grow_up() {
+        buckets_ = 0;
+        const size_t next_size = table_.size() * times_;
+        table_.clear();
+        table_.resize(next_size);
+        for (auto x = all_.begin(); x != all_.end(); ++x) {
+            size_t id = hash_(x->first) % table_.size();
+            table_[id].push_back(x);
+            if (table_[id].size() == 1) {
+                ++buckets_;
+            }
+        }
+    }
 
  public:
     typedef typename std::list<std::pair<const KeyType, ValueType>>::iterator iterator;
     typedef typename std::list<std::pair<const KeyType, ValueType>>::const_iterator const_iterator;
 
     HashMap(Hash new_hash = Hash()) : hash_(new_hash) {
-        table.resize(beginner_size);
-        buckets = 0;
+        table_.resize(beginner_size_);
+        buckets_ = 0;
     }
 
     template<typename It>
-    HashMap(It begin, It end, Hash new_hash = Hash()) : hash_(new_hash) {
-        buckets = 0;
-        table.resize(beginner_size);
+    HashMap(It begin, It end, Hash new_hash = Hash()) : HashMap(new_hash) {
         while (begin != end) {
             insert(*begin);
             ++begin;
@@ -34,20 +45,14 @@ class HashMap {
     }
 
     HashMap(std::initializer_list<std::pair<KeyType, ValueType>> l, Hash new_hash = Hash()) :
-    hash_(new_hash) {
-        table.resize(beginner_size);
-        buckets = 0;
-        for (auto x : l) {
-            insert(x);
-        }
-    }
+    HashMap(l.begin(), l.end(), new_hash) {}
 
     size_t size() const {
-        return all.size();
+        return all_.size();
     }
 
     bool empty() const {
-        return all.empty();
+        return all_.empty();
     }
 
     Hash hash_function() const {
@@ -55,96 +60,83 @@ class HashMap {
     }
 
     void erase(KeyType key) {
-        size_t id = hash_(key) % table.size();
-        for (auto i = table[id].begin(); i != table[id].end(); ++i) {
+        size_t id = hash_(key) % table_.size();
+        for (auto i = table_[id].begin(); i != table_[id].end(); ++i) {
             if ((*i)->first == key) {
-                all.erase(*i);
-                table[id].erase(i);
-                if (table[id].empty()) {
-                    --buckets;
+                all_.erase(*i);
+                table_[id].erase(i);
+                if (table_[id].empty()) {
+                    --buckets_;
                 }
                 return;
             }
         }
     }
 
-    void grow_up() {
-        buckets = 0;
-        size_t prev_size = table.size();
-        table.clear();
-        table.resize(prev_size * 2);
-        for (auto x = all.begin(); x != all.end(); ++x) {
-            size_t id = hash_(x->first) % table.size();
-            table[id].push_back(x);
-            if (table[id].size() == 1) {
-                ++buckets;
-            }
-        }
-    }
-
     void clear() {
-        buckets = 0;
-        table.clear();
-        table.resize(beginner_size);
-        all.clear();
+        buckets_ = 0;
+        table_.clear();
+        table_.resize(beginner_size_);
+        all_.clear();
     }
 
-    void insert(std::pair<KeyType, ValueType> x) {
-        size_t id = hash_(x.first) % table.size();
-        for (auto& it : table[id]) {
+    void insert(const std::pair<KeyType, ValueType> x) {
+        size_t id = hash_(x.first) % table_.size();
+        for (const auto& it : table_[id]) {
             if (it->first == x.first) {
                 return;
             }
         }
-        all.push_front(x);
-        table[id].push_back(all.begin());
-        if (table[id].size() == 1) {
-            ++buckets;
+        all_.push_front(x);
+        table_[id].push_back(all_.begin());
+        if (table_[id].size() == 1) {
+            ++buckets_;
         }
-        if (buckets > table.size() / 2) {
+        const size_t free_space = table_.size() / times_;
+        if (buckets_ > free_space) {
             grow_up();
         }
     }
 
     const_iterator begin() const {
-        return all.begin();
+        return all_.begin();
     }
 
     const_iterator end() const {
-        return all.end();
+        return all_.end();
     }
 
     iterator begin() {
-        return all.begin();
+        return all_.begin();
     }
 
     iterator end() {
-        return all.end();
+        return all_.end();
     }
 
     iterator find(KeyType key) {
-        size_t id = hash_(key) % table.size();
-        for (auto& x : table[id]) {
+        size_t id = hash_(key) % table_.size();
+        for (const auto& x : table_[id]) {
             if (x->first == key) {
                 return x;
             }
         }
-        return all.end();
+        return all_.end();
     }
 
     const_iterator find(KeyType key) const {
-        size_t id = hash_(key) % table.size();
-        for (auto& x : table[id]) {
+        size_t id = hash_(key) % table_.size();
+        for (const auto& x : table_[id]) {
             if (x->first == key) {
                 return x;
             }
         }
-        return all.end();
+        return all_.end();
     }
 
     ValueType& operator[](KeyType key) {
         auto found = find(key);
-        if (found == all.end()) {
+        if (found == all_.end()) {
             insert({key, ValueType()});
             auto found_again = find(key);
             return found_again->second;
@@ -155,7 +147,7 @@ class HashMap {
 
     const ValueType& at(KeyType key) const {
         auto found = find(key);
-        if (found == all.end()) {
+        if (found == all_.end()) {
             throw std::out_of_range("out of range");
         } else {
             return found->second;
@@ -163,10 +155,10 @@ class HashMap {
     }
 
     void swap(HashMap& other) throw() {
-        all.swap(other.all);
-        table.swap(other.table);
+        all_.swap(other.all_);
+        table_.swap(other.table_);
         std::swap(hash_, other.hash_);
-        std::swap(buckets, other.buckets);
+        std::swap(buckets_, other.buckets_);
     }
 
     HashMap operator =(const HashMap& other) {
