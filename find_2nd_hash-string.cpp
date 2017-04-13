@@ -5,30 +5,24 @@
 #include <time.h>
 #include <unordered_map>
 #include <utility>
-using namespace std;
+#include <vector>
 
 using ll = long long;
 using ld = long double;
 
-const int n = 7;
+const size_t n = 7;
 const size_t lim = 1e6 + 2e5;
-unordered_map<ll, string> half_hash;
-ll module, p, p_power[n * 2];
-string Alpha = "_";
 
-int myrand(int i) {
-    return rand() % i;
-}
-
-ll hash_calc(string& s) {
+ll hash_calc(const std::string& s, const std::vector<ll>& p_power,
+    const ll& module, const ll& p) {
     ll result = 0;
-    for (int i = 0; i < s.size(); ++i) {
+    for (size_t i = 0; i < s.size(); ++i) {
         result = (result + p_power[s.size() - i - 1] * s[i]) % module;
     }
     return result;
 }
 
-void init() {
+void init_alpha(std::string& Alpha) {
     for (char c = 'a'; c <= 'z'; ++c) {
         Alpha += c;
         Alpha += toupper(c);
@@ -36,15 +30,19 @@ void init() {
     for (char c = '0'; c <= '9'; ++c) {
         Alpha += c;
     }
+}
+
+void init_pw(std::vector<ll>& p_power, const ll& p, const ll& module) {
     p_power[0] = 1;
-    for (int i = 1; i < n * 2; ++i) {
+    for (size_t i = 1; i < n * 2; ++i) {
         p_power[i] = (p_power[i - 1] * p) % module;
     }
 }
 
-pair<string, ll> get_str() {
-    pair<string, ll> result;
-    for (int i = 0; i < n; ++i) {
+std::pair<std::string, ll> get_str(const std::string& Alpha,
+    const std::vector<ll>& p_power, const ll& module) {
+    std::pair<std::string, ll> result;
+    for (size_t i = 0; i < n; ++i) {
         result.first += Alpha[rand() % Alpha.size()];
         result.second += p_power[n - i - 1] * result.first[result.first.size() - 1];
         result.second %= module;
@@ -52,32 +50,41 @@ pair<string, ll> get_str() {
     return result;
 }
 
-int main() {
-    ios::sync_with_stdio(0);
-    cin.tie(nullptr);
-    srand(time(NULL));
-    string initial_string;
-    cin >> initial_string >> module >> p;
-    init();
-    ll initial_hash = hash_calc(initial_string);
-    while (half_hash.size() < min(static_cast<ll>(lim), module)) {
-        auto tmp = get_str();
+std::string find_collision(const std::string& initial_string, const std::string& Alpha,
+    const std::vector<ll>& p_power, const ll& module, const ll& p) {
+    std::unordered_map<ll, std::string> half_hash;
+    while (half_hash.size() < std::min(static_cast<ll>(lim), module)) {
+        auto tmp = get_str(Alpha, p_power, module);
         half_hash[tmp.second] = tmp.first;
     }
-    while (true) {
-        auto tmp = get_str();
-        for (int i = 0; i < n; ++i) {
+    ll initial_hash = hash_calc(initial_string, p_power, module, p);
+    while (1) {
+        auto tmp = get_str(Alpha, p_power, module);
+        for (size_t i = 0; i < n; ++i) {
             tmp.second = (tmp.second * p) % module;
         }
         ll need = (initial_hash - tmp.second) % module;
         need += module;
         need %= module;
         if (half_hash.find(need) != half_hash.end()) {
-            string answer = tmp.first + half_hash[need];
+            std::string answer = tmp.first + half_hash[need];
             if (answer == initial_string) continue;
-            cout << answer << '\n';
-            return 0;
+            return answer;
         }
     }
 }
 
+int main() {
+    std::ios::sync_with_stdio(0);
+    std::cin.tie(nullptr);
+    srand(time(NULL));
+    std::string initial_string, Alpha = "_";;
+    std::unordered_map<ll, std::string> half_hash;
+    ll p, module;
+    std::cin >> initial_string >> module >> p;
+    std::vector<ll> p_power(n * 2);
+    init_alpha(Alpha);
+    init_pw(p_power, p, module);
+    std::cout << find_collision(initial_string, Alpha,
+    p_power, module, p) << '\n';
+}
