@@ -62,6 +62,18 @@ void fft(vector<double>& a, vector<double>& b, int n, bool rev) {
 }
 
 
+vector<double> mult(vector<double>& a, vector<double>& b) {
+    int n = a.size();
+    vector<double> a1(n), b1(n), c(n), c1(n);
+    fft(a, a1, n, false);
+    fft(b, b1, n, false);
+    for (int i = 0; i < n; ++i) {
+         c[i] = a[i] * b[i] - a1[i] * b1[i];
+         c1[i] = a[i] * b1[i] + b[i] * a1[i];
+    }
+    fft(c, c1, n, true);
+    return c;
+}
 
 
 
